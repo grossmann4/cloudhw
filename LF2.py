@@ -62,19 +62,27 @@ def lambda_handler(event, context):
         Query database based on elastic search results
         Store the relevant info, create the message and sns the info
     """
-    SQS = boto3.client("sqs")
+    OpenSearch = boto3.client("opensearch")
     url = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com"
     index = "restaurants"
     host = '' # The OpenSearch domain endpoint with https:// and without a trailing slash
     index = 'movies'
-    url = host + '/' + index + '/_search?q=title:{cuisine}'.format(cuisine=cuisine)
+    url = host + '/' + index + '/_search'
+    query = {
+        "size": 1300,
+        "query": {
+            "query_string": {
+                "default_field": "cuisine",
+                "query": cuisine
+            }
+        }
+    }
     
-    esResponse = requests.get(es_query)
-    data = json.loads(esResponse.content)
-    try:
-        esData = data["hits"]["hits"]
-    except KeyError:
-        logger.debug("Error extracting hits from ES response")
+    headers = { "Content-Type": "application/json" }
+    response = requests.get(url,auth=awsauth, headers=headers, data=json.dumps(query))
+    res = response.json()
+    noOfHits = res['hits']['total']
+    hits = res['hits']['hits']
     
     # extract bID from AWS ES
     ids = []
