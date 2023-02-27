@@ -62,9 +62,13 @@ def lambda_handler(event, context):
         Query database based on elastic search results
         Store the relevant info, create the message and sns the info
     """
+    SQS = boto3.client("sqs")
+    url = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com"
+    index = "restaurants"
+    host = '' # The OpenSearch domain endpoint with https:// and without a trailing slash
+    index = 'movies'
+    url = host + '/' + index + '/_search?q=title:{cuisine}'.format(cuisine=cuisine)
     
-    es_query = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com/_search?q={cuisine}".format(
-        cuisine=cuisine)
     esResponse = requests.get(es_query)
     data = json.loads(esResponse.content)
     try:
