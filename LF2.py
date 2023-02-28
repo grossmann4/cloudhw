@@ -1,4 +1,7 @@
 import boto3
+import os
+from opensearchpy import OpenSearch, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 import json
 import logging
 from boto3.dynamodb.conditions import Key, Attr
@@ -7,6 +10,10 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+REGION = 'us-east-1'
+INDEX = 'yelp-restaurants'
+HOST = 'https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com'
 
 def getSQSMsg():
     SQS = boto3.client("sqs")
@@ -27,12 +34,38 @@ def getSQSMsg():
         logger.debug("No message in the queue")
         return None
     message = response['Messages'][0]
-    # SQS.delete_message(
-    #         QueueUrl=url,
-    #         ReceiptHandle=message['ReceiptHandle']
-    #     )
+    SQS.delete_message(
+            QueueUrl=url,
+            ReceiptHandle=message['ReceiptHandle']
+        )
     logger.debug('Received and deleted message: %s' % response)
     return message
+    
+def query(term):
+    q = {'size': 5, 'query': {'multi_match': {'query': term}}}
+    client = OpenSearch(hosts=[{
+        'host': HOST,
+        'port': 443
+    }],
+                        http_auth=get_awsauth(REGION, 'es'),
+                        use_ssl=True,
+                        verify_certs=True,
+                        connection_class=RequestsHttpConnection)
+    res = client.search(index=INDEX, body=q)
+    print(res)
+    hits = res['hits']['hits']
+    results = []
+    for hit in hits:
+        results.append(hit['_source'])
+    return results
+        
+def get_awsauth(region, service):
+    cred = boto3.Session().get_credentials()
+    return AWS4Auth(cred.access_key,
+                        cred.secret_key,
+                        region,
+                        service,
+                        session_token=cred.token)
 
 def lambda_handler(event, context):
     
@@ -62,32 +95,23 @@ def lambda_handler(event, context):
         Query database based on elastic search results
         Store the relevant info, create the message and sns the info
     """
-    OpenSearch = boto3.client("opensearch")
-    url = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com"
-    index = "restaurants"
-    host = '' # The OpenSearch domain endpoint with https:// and without a trailing slash
-    index = 'movies'
-    url = host + '/' + index + '/_search'
-    query = {
-        "size": 1300,
-        "query": {
-            "query_string": {
-                "default_field": "cuisine",
-                "query": cuisine
-            }
-        }
-    }
+    
+    es_query = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com/_search?q={cuisine}".format(
+        cuisine=cuisine)
     
     headers = { "Content-Type": "application/json" }
-    response = requests.get(url,auth=awsauth, headers=headers, data=json.dumps(query))
-    res = response.json()
+    r = requests.get(es_query, auth=get_awsauth(REGION, 'es'), headers=headers)
+
+    res = r.json()
+    print(res)
     noOfHits = res['hits']['total']
     hits = res['hits']['hits']
+
     
     # extract bID from AWS ES
     ids = []
-    for restaurant in esData:
-        ids.append(restaurant["_source"]["id"])
+    for restaurant in hits:
+        ids.append(restaurant["_source"]["restaurant-id"])
     
     messageToSend = 'Hello! Here are my {cuisine} restaurant suggestions in {location} for {numPeople} people, for {diningDate} at {diningTime}: '.format(
             cuisine=cuisine,
@@ -103,18 +127,20 @@ def lambda_handler(event, context):
     for id in ids:
         if itr == 3:
             break
-        response = table.scan(FilterExpression=Attr('id').eq(id))
+        response = table.scan(FilterExpression=Attr('restaurant_id').eq(id))
+        print(response)
         item = response['Items'][0]
         if response is None:
             continue
         restaurantMsg = '' + str(itr) + '. '
         name = item["name"]
-        address = item["address"]
+        address = item["display_address"][0]
         restaurantMsg += name +', located at ' + address +'. '
         messageToSend += restaurantMsg
         itr += 1
         
     messageToSend += "Enjoy your meal!!"
+    print("/n" + messageToSend)
     
     # try:
     #     client = boto3.client('ses', region_name= 'us-east-1')
@@ -157,7 +183,7 @@ def lambda_handler(event, context):
       <h1>Amazon SES Test (SDK for Python)</h1>
       <p> {messageToSend} </p>
     </body>
-    </html>""".format(messageToSend)            
+    </html>""".format(messageToSend=messageToSend)            
     
     # The character encoding for the email.
     CHARSET = "UTF-8"
@@ -207,6 +233,14 @@ def lambda_handler(event, context):
         'body': json.dumps("LF2 running succesfully")
     }
     # return messageToSend
+    
+
+
+    
+    
+
+
+
     
     
 
