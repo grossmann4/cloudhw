@@ -2,10 +2,13 @@ import json
 import boto3
 import logging
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 def lambda_handler(event, context):
     client = boto3.client('lexv2-runtime')
     #message = "Hello"
-    msg_from_user = event['messages'][0]['content']
+    msg_from_user = event['body']
     
     response = client.recognize_text(
         botId='2QV4ZAIFXV', # MODIFY HERE
@@ -21,26 +24,18 @@ def lambda_handler(event, context):
     #print(type(msg_from_lex))
 
     
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Access-Control-Allow-Headers': 'Content-Type, Origin, X-Auth-Token',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-        },
-        'body': {
-            "messages": [
-                {
-                    "type": "unstructured",
-                    "unstructured": {
-                        "id": "1",
-                        "text": msg_from_lex
+     return {
+            'statusCode': 200,
+            "messages": [{"type": "unstructured", 
+                        "unstructured": {
+                            "id": "id",
+                            "text": msg_from_lex[0]['content'],
+                            "timestamp": "timestamp"
+                        }
+                
                     }
-                }
-            ]
-
+                ]
         }
-    }
     
             # modify resp to send back the next question Lex would ask from the user
         
