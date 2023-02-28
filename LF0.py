@@ -6,9 +6,11 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 def lambda_handler(event, context):
+    logger.debug(event)
     client = boto3.client('lexv2-runtime')
     #message = "Hello"
     msg_from_user = event['body']
+    logger.debug(msg_from_user)
     
     response = client.recognize_text(
         botId='2QV4ZAIFXV', # MODIFY HERE
