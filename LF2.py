@@ -13,11 +13,11 @@ logger.setLevel(logging.DEBUG)
 
 REGION = 'us-east-1'
 INDEX = 'yelp-restaurants'
-HOST = 'https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com'
+HOST = 'https://search-restaurant-abarocnh7j6sf2dw5gbwnyyzsq.us-east-1.es.amazonaws.com'
 
 def getSQSMsg():
     SQS = boto3.client("sqs")
-    url = 'https://sqs.us-east-1.amazonaws.com/705981116321/Q1'
+    url = 'https://sqs.us-east-1.amazonaws.com/751685537060/Q1'
     response = SQS.receive_message(
         QueueUrl=url, 
         AttributeNames=['SentTimestamp'],
@@ -96,7 +96,7 @@ def lambda_handler(event, context):
         Store the relevant info, create the message and sns the info
     """
     
-    es_query = "https://search-restaurant-4uc7ejx6sxa2y3vwshkxvlayhq.us-east-1.es.amazonaws.com/_search?q={cuisine}".format(
+    es_query = "https://search-restaurant-abarocnh7j6sf2dw5gbwnyyzsq.us-east-1.es.amazonaws.com/_search?q={cuisine}".format(
         cuisine=cuisine)
     
     headers = { "Content-Type": "application/json" }
@@ -111,7 +111,10 @@ def lambda_handler(event, context):
     # extract bID from AWS ES
     ids = []
     for restaurant in hits:
-        ids.append(restaurant["_source"]["restaurant-id"])
+        if "restaurant_id" in restaurant["_source"]:
+            ids.append(restaurant["_source"]["restaurant_id"])
+        else:
+            ids.append(restaurant["_source"]["restaurant-id"])
     
     messageToSend = 'Hello! Here are my {cuisine} restaurant suggestions in {location} for {numPeople} people, for {diningDate} at {diningTime}: '.format(
             cuisine=cuisine,
@@ -156,7 +159,7 @@ def lambda_handler(event, context):
     
     # Replace sender@example.com with your "From" address.
     # This address must be verified with Amazon SES.
-    SENDER = "ar4513@columbia.edu"
+    SENDER = "grossmann.6@osu.edu"
     
     # Replace recipient@example.com with a "To" address. If your account 
     # is still in the sandbox, this address must be verified.
@@ -234,15 +237,3 @@ def lambda_handler(event, context):
     }
     # return messageToSend
     
-
-
-    
-    
-
-
-
-    
-    
-
-
-
