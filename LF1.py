@@ -12,11 +12,11 @@ logger.setLevel(logging.DEBUG)
 SQS = boto3.client("sqs")
 
 # Define the client to interact with Lex
-client = boto3.client('lexv2-runtime')
+client = boto3.client('lexv2-runtime', region_name='us-east-1')
 
 def getQueueURL():
     """Retrieve the URL for the configured queue name"""
-    q = 'https://sqs.us-east-1.amazonaws.com/705981116321/Q1'
+    q = 'https://sqs.us-east-1.amazonaws.com/751685537060/Q1'
     return q
    
 def record(slots):
@@ -192,6 +192,7 @@ def validate_dining_suggestions(location, diningtime, diningdate, cuisine, numbe
 
 
 def suggest(intent_request):
+    logger.debug(intent_request)
     slots = intent_request['sessionState']['intent']['slots']
     location = slots['Location']['value']['interpretedValue']
     diningtime = slots['DiningTime']['value']['interpretedValue']
